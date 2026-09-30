@@ -1,0 +1,123 @@
+#!/usr/bin/env bash
+# CH-Comm-Coach pre-commit guard. Shared code and the full contract: lib.sh (README "Guard hooks").
+#
+# Blocks the commit when:
+#   - the blocklists are missing, unreadable or mis-encoded (fail closed; see lib.sh)
+#   - any text file in the WHOLE index contains a blocklist term (both modes)
+#   - money / email / phone patterns appear in content files
+#       public mode: every text file except code (*.sh, *.py, scripts/hooks/*)
+#       private mode: knowledge/ and eval/ only
+#   - a staged path is under private/ (except private/README.md) or .resource/, is *.local.md,
+#     has a control character or a blocklist term in its name, or - public mode - is outside the
+#     public allowlist
+#   - a staged file is binary (public mode), or binary/UTF-16 under knowledge/ or eval/ or in a
+#     text-named file (*.md, *.txt, *.yaml, *.json, *.csv ...) anywhere (private mode)
+#   - public mode: a staged hook or scripts/*.sh file is not executable in git (mode 100644)
+#   - kernel/instructions.md is staged and: has more than MAX_WORDS words (default 3200), has no
+#     'Version X.Y' line, has no '## X.Y' entry in kernel/CHANGELOG.md (staged copy, else the
+#     working tree), or its text changed while its Version stayed the same as in HEAD
+# Output names file:line and the check, never the matched text.
+# Install: bash scripts/install-hooks.sh public|private     Trace timings: COMMCOACH_TRACE=1
+
+set -u
+case ${BASH_SOURCE[0]} in */*) CC_LIBDIR=${BASH_SOURCE[0]%/*} ;; *) CC_LIBDIR=. ;; esac
+# shellcheck source=lib.sh
+if ! . "$CC_LIBDIR/lib.sh"; then
+  printf 'commcoach pre-commit: BLOCKED - cannot load %s/lib.sh\n' "$CC_LIBDIR" >&2
+  exit 1
+fi
+cc_init pre-commit
+
+KERNEL=kernel/instructions.md
+CHANGELOG=kernel/CHANGELOG.md
+MAX_WORDS=${MAX_WORDS:-3200}
+
+kernel_checks() {  # reads the blobs `git cat-file --batch` returns for the kblobs spawn
+  local fd=${CC_FD[kblobs]} name hdr size ver= prev= words line want
+  local -A blob=() oid=()
+  local -a lines=() w=()
+  for name in staged head changelog; do
+    IFS= read -r -u "$fd" hdr || break
+    [[ $hdr =~ ^[0-9a-f]+\ [a-z]+\ [0-9]+$ ]] || continue          # "<object> missing"
+    size=${hdr##* }; oid[$name]=${hdr%% *}
+    cc_read_exact "$fd" "$size"; blob[$name]=$CC_R
+    IFS= read -r -u "$fd" _ || true                                 # the separator newline
+  done
+  cc_discard kblobs
+
+  if [ -z "${oid[staged]-}" ]; then cc_block "$KERNEL" "cannot read the staged kernel"; return; fi
+
+  if [[ ! $MAX_WORDS =~ ^[0-9]+$ ]]; then
+    cc_block "$KERNEL" "MAX_WORDS must be a whole number - the word limit was not checked"
+  else
+    IFS=$' \t\n' read -r -d '' -a w <<<"${blob[staged]//$'\r'/}"
+    words=${#w[@]}
+    (( words > 10#$MAX_WORDS )) &&
+      cc_block "$KERNEL" "$words words, limit $(( 10#$MAX_WORDS )) (MAX_WORDS) - rules stay in the kernel, data goes to knowledge/"
+  fi
+
+  if [[ ${blob[staged]} =~ Version[[:space:]]+([0-9]+\.[0-9]+) ]]; then ver=${BASH_REMATCH[1]}; fi
+  if [ -z "$ver" ]; then cc_block "$KERNEL" "no 'Version X.Y' line"; return; fi
+
+  if [ -n "${oid[head]-}" ] && [ "${oid[head]}" != "${oid[staged]}" ] &&
+     [[ ${blob[head]} =~ Version[[:space:]]+([0-9]+\.[0-9]+) ]]; then
+    prev=${BASH_REMATCH[1]}
+    [ "$prev" = "$ver" ] &&
+      cc_block "$KERNEL" "text changed but Version is still $ver (as in HEAD) - bump it and add the '## <new version>' entry to $CHANGELOG"
+  fi
+
+  if [ -n "${oid[changelog]-}" ]; then                             # the staged CHANGELOG wins
+    mapfile -t lines <<<"${blob[changelog]}"
+  elif [ -f "$CC_TOP/$CHANGELOG" ]; then                            # else the working tree
+    mapfile -t lines <"$CC_TOP/$CHANGELOG"
+  fi
+  want="^##[[:space:]]+${ver//./\\.}([[:space:]]|$)"
+  for line in "${lines[@]}"; do
+    [[ ${line%$'\r'} =~ $want ]] && return 0
+  done
+  cc_block "$CHANGELOG" "kernel is Version $ver but there is no '## $ver' entry"
+}
+
+# One round, in parallel: settings, the staged paths (NUL-separated, never quoted) and the
+# whole-index content scan (started on the settings guessed from .git/config, then verified).
+spawn_kernel() { cc_spawn_in kblobs ":$KERNEL"$'\n'"HEAD:$KERNEL"$'\n'":$CHANGELOG" git cat-file --batch; }
+cc_trace "lib loaded"
+cc_spawn_config
+cc_spawn staged "${CC_DIFF[@]}" --cached --diff-filter=d
+# kernel edited since HEAD last moved? then read its blobs now instead of after the listing
+gd=${GIT_DIR:-.git}
+if [ -f "$KERNEL" ] && [ -d "$gd" ] && { [ ! -e "$gd/logs/HEAD" ] || [ "$KERNEL" -nt "$gd/logs/HEAD" ]; }; then
+  spawn_kernel
+fi
+cc_speculate --cached
+cc_collect_config
+cc_settle --cached
+cc_trace "settings: $CC_MODE mode, ${#CC_TERMS[@]} blocklist terms"
+
+listing=()
+cc_collect staged listing nul; rc=$?
+(( rc == 0 )) || cc_block "(git diff --cached)" "cannot list the staged files (status $rc)"
+cc_parse_listing listing
+cc_trace "${#CC_P[@]} staged paths"
+
+kernel_staged=0
+if [ -n "${CC_P_MODE[$KERNEL]-}" ]; then
+  kernel_staged=1
+  if [ -n "${CC_P_BIN[$KERNEL]-}" ]; then
+    cc_block "$KERNEL" "the kernel must be UTF-8 text"; kernel_staged=0
+  else
+    cc_spawned kblobs || spawn_kernel
+  fi
+fi
+(( kernel_staged )) || cc_discard kblobs
+cc_check_paths "git diff --cached --name-only --no-renames --diff-filter=d"
+cc_trace "path checks"
+if (( kernel_staged )); then kernel_checks; cc_trace "kernel checks"; fi
+cc_scan_collect
+cc_trace "content scan"
+
+if ! cc_finish; then
+  printf '%s\n' "Nothing was committed. Open each file at the line shown (matched text is never printed), fix it, stage it, commit again." >&2
+  exit 1
+fi
+exit 0

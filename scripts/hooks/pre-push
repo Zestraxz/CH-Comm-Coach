@@ -1,0 +1,288 @@
+#!/usr/bin/env bash
+# CH-Comm-Coach pre-push guard. Shared code and the full contract: lib.sh (README "Guard hooks").
+# git runs it as: pre-push <remote name> <url>, with "<local ref> <local sha> <remote ref>
+# <remote sha>" lines on stdin.
+#
+# Both modes: every pushed tip tree must pass the same blocklist, pattern and path checks as
+#   pre-commit (git grep <sha>), so a commit made with --no-verify still cannot be pushed; every
+#   older commit the push publishes gets the same content scan on its tree and the path checks
+#   on the files it changed (the exec-bit rule excepted), so a leak removed by a later commit
+#   is still refused; and
+#   every pushed commit or annotated-tag message must hold no blocklist term (public mode: no
+#   money / phone / email either - trailer lines such as "Co-Authored-By: Name <addr>" are
+#   exempt from the email check).
+# Private mode: a github.com remote must NOT be public. Unauthenticated request to
+#   https://api.github.com/repos/<owner>/<repo>: 404 => not public, allowed; 200 => PUBLIC,
+#   blocked; anything else => blocked unless COMMCOACH_SKIP_VISIBILITY=1 (for that push only).
+# Public mode: the author and committer email of every pushed commit, and the tagger email of
+#   every pushed annotated tag, must match git config commcoach.publicEmail
+#   (default '*@users.noreply.github.com').
+# Output names the commit and file:line and the check - never the matched text or the email.
+# Trace timings: COMMCOACH_TRACE=1. Test the visibility check offline: COMMCOACH_CURL=<stub>.
+
+set -u
+case ${BASH_SOURCE[0]} in */*) CC_LIBDIR=${BASH_SOURCE[0]%/*} ;; *) CC_LIBDIR=. ;; esac
+# shellcheck source=lib.sh
+if ! . "$CC_LIBDIR/lib.sh"; then
+  printf 'commcoach pre-push: BLOCKED - cannot load %s/lib.sh\n' "$CC_LIBDIR" >&2
+  exit 1
+fi
+cc_init pre-push
+
+remote=${1-}
+url=${2-}
+EMPTY_SHA1=4b825dc642cb6eb9a060e54bf8d69288fbee4904
+EMPTY_SHA256=6ef19b41225c5369f1c104d45d8d85efa9b057b53b14b4b9b939dd74decc5321
+
+# ---- what is being pushed (stdin) --------------------------------------------------------
+declare -a reflines=() tips=() rshas=() tagshas=()
+declare -A seen=()
+mapfile -t reflines
+for l in "${reflines[@]}"; do
+  lref= lsha= rref= rsha=
+  read -r lref lsha rref rsha <<<"$l" || true
+  [[ $lsha =~ ^[0-9a-f]{40}([0-9a-f]{24})?$ ]] || continue
+  [[ $lsha =~ ^0+$ ]] && continue                                   # a deletion pushes nothing
+  if [ -z "${seen[$lsha]-}" ]; then seen[$lsha]=1; tips+=("$lsha"); fi
+  [[ $rsha =~ ^[0-9a-f]+$ && ! $rsha =~ ^0+$ ]] && rshas+=("$rsha")
+  [[ $lref == refs/tags/* ]] && tagshas+=("$lsha")
+done
+
+# ---- GitHub visibility (private mode) ----------------------------------------------------
+github_slug() {  # <url> -> 0 + CC_R=owner/repo | 1 not GitHub | 2 GitHub but unparseable
+  local u=${1%/} host= path= scheme= hp rh= l
+  local -a sg=()
+  case $u in
+    /*|./*|../*|[A-Za-z]:[\\/]*|file:*|'\\'*) return 1 ;;
+    *://*) scheme=${u%%://*}; hp=${u#*://}
+           [[ $hp == */* ]] && path=${hp#*/}
+           hp=${hp%%/*}; host=${hp##*@}; host=${host%%:*} ;;
+    *:*)   scheme=scp; hp=${u%%:*}; path=${u#*:}; host=${hp##*@} ;;
+    *)     return 1 ;;
+  esac
+  host=${host,,}; scheme=${scheme,,}
+  case $host in
+    github.com|*.github.com) ;;
+    *)
+      # an ssh host alias (Host work-gh / HostName github.com)?
+      if [[ $scheme == ssh || $scheme == scp || $scheme == git+ssh || $scheme == ssh+git ]] &&
+         command -v ssh >/dev/null 2>&1; then
+        mapfile -t sg < <(ssh -G "$host" 2>/dev/null </dev/null)
+        for l in "${sg[@]}"; do [[ $l == 'hostname '* ]] && rh=${l#hostname }; done
+      fi
+      case ${rh,,} in
+        github.com|*.github.com) ;;
+        *) [[ $host == *github* ]] || return 1 ;;                   # an alias we cannot resolve
+      esac ;;
+  esac
+  path=${path#/}; path=${path%/}; path=${path%.git}
+  if [[ $path =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then CC_R=$path; return 0; fi
+  CC_R=$host; return 2
+}
+
+visibility_verdict() {  # <slug> <http code> <curl status>
+  local slug=$1 code=$2 rc=$3
+  case $code in
+    404) cc_note "github.com/$slug is not public (HTTP 404) - push allowed" ;;
+    200) cc_block "(push target)" "github.com/$slug is PUBLIC (HTTP 200) and this repo is in private mode - push refused. Make the GitHub repo private first." ;;
+    *)
+      if [ "${COMMCOACH_SKIP_VISIBILITY:-0}" = 1 ]; then
+        cc_warn "could not confirm github.com/$slug is private (HTTP ${code:-none}); COMMCOACH_SKIP_VISIBILITY=1, so the push is allowed"
+      else
+        cc_block "(push target)" "could not confirm github.com/$slug is private (HTTP ${code:-none}, curl status $rc) - push refused. After checking the repo is private, retry with COMMCOACH_SKIP_VISIBILITY=1."
+      fi ;;
+  esac
+}
+
+# ---- identities (public mode) ------------------------------------------------------------
+email_ok() {
+  local e=$1 rc=1
+  [ -n "$e" ] || return 1
+  shopt -s nocasematch
+  # shellcheck disable=SC2053  # the configured value is a glob on purpose
+  [[ $e == $CC_PUBLIC_EMAIL ]] && rc=0
+  shopt -u nocasematch
+  return $rc
+}
+TRAILER_RE='^[A-Za-z][A-Za-z0-9-]*: .*<[^>]*@[^>]*>[[:space:]]*$'   # Co-Authored-By: Name <addr>
+check_message() {  # <location> <message>: blocklist terms (both modes); patterns (public mode)
+  local where=$1 line lc n=0 i lab
+  while IFS= read -r line; do
+    n=$(( n + 1 ))
+    [[ $line == '-----BEGIN '*'SIGNATURE-----'* ]] && break
+    lc=${line,,}
+    for i in "${!CC_TERMS_LC[@]}"; do
+      if [[ $lc == *"${CC_TERMS_LC[i]}"* ]]; then
+        cc_block "$where message line $n" "term from ${CC_TERM_REF[i]}"; break
+      fi
+    done
+    [ "$CC_MODE" = public ] || continue
+    lab=
+    shopt -s nocasematch
+    [[ $line =~ $CC_RE_MONEY ]] && lab+="money amount, "
+    [[ $line =~ $CC_RE_PHONE ]] && lab+="phone number, "
+    [[ ! $line =~ $TRAILER_RE && $line =~ $CC_RE_EMAIL ]] && lab+="email address, "
+    shopt -u nocasematch
+    [ -n "$lab" ] && cc_block "$where message line $n" "${lab%, }"
+  done <<<"$2"
+}
+check_name() {  # <location> <role> <name>: blocklist terms in an author/committer/tagger name (both modes)
+  local lc=${3,,} i
+  for i in "${!CC_TERMS_LC[@]}"; do
+    if [[ $lc == *"${CC_TERMS_LC[i]}"* ]]; then
+      cc_block "$1" "$2 name contains a term from ${CC_TERM_REF[i]}"; return
+    fi
+  done
+}
+newc=()   # every commit this push publishes (filled by check_log)
+check_log() {
+  local -a recs=(); local rc r sha rest ae ce names msg
+  cc_collect log recs nul; rc=$?
+  (( rc == 0 )) || cc_block "(git log)" "cannot list the pushed commits (status $rc)"
+  for r in "${recs[@]}"; do
+    r=${r#$'\n'}; [ -z "$r" ] && continue
+    sha=${r%%$'\t'*}; rest=${r#*$'\t'}
+    newc+=("$sha")
+    ae=${rest%%$'\t'*}; rest=${rest#*$'\t'}
+    ce=${rest%%$'\t'*}; rest=${rest#*$'\t'}
+    names=${rest%%$'\t'*}; msg=${rest#*$'\t'}   # "<author name>\x1f<committer name>"
+    if [ "$CC_MODE" = public ]; then
+      email_ok "$ae" || cc_block "(commit ${sha:0:10})" "author email does not match commcoach.publicEmail ($CC_PUBLIC_EMAIL)"
+      email_ok "$ce" || cc_block "(commit ${sha:0:10})" "committer email does not match commcoach.publicEmail ($CC_PUBLIC_EMAIL)"
+    fi
+    check_name "(commit ${sha:0:10})" author "${names%%$'\x1f'*}"
+    check_name "(commit ${sha:0:10})" committer "${names#*$'\x1f'}"
+    check_message "(commit ${sha:0:10})" "$msg"
+  done
+}
+check_taggers() {
+  local fd=${CC_FD[tags]} hdr size body line email tname sha type
+  while IFS= read -r -u "$fd" hdr; do
+    [[ $hdr =~ ^([0-9a-f]+)\ ([a-z]+)\ ([0-9]+)$ ]] || continue
+    sha=${BASH_REMATCH[1]}; type=${BASH_REMATCH[2]}; size=${BASH_REMATCH[3]}
+    cc_read_exact "$fd" "$size"; body=$CC_R
+    IFS= read -r -u "$fd" _ || true
+    [ "$type" = tag ] || continue
+    email= tname=
+    while IFS= read -r line; do
+      [ -z "$line" ] && break
+      if [[ $line =~ ^tagger\ (.*)\<([^\>]*)\> ]]; then tname=${BASH_REMATCH[1]}; email=${BASH_REMATCH[2]}; break; fi
+    done <<<"$body"
+    if [ "$CC_MODE" = public ]; then
+      email_ok "$email" || cc_block "(tag ${sha:0:10})" "tagger email does not match commcoach.publicEmail ($CC_PUBLIC_EMAIL)"
+    fi
+    check_name "(tag ${sha:0:10})" tagger "$tname"
+    [[ $body == *$'\n\n'* ]] && check_message "(tag ${sha:0:10})" "${body#*$'\n\n'}"
+  done
+  cc_reap tags || cc_block "(git cat-file)" "cannot read the pushed tags (status $?)"
+}
+
+# ---- older pushed commits (both modes) ---------------------------------------------------
+# The tip trees are checked in full above. A commit below a tip is published too, so a leak
+# committed with --no-verify and removed by a later commit must still block: each older commit
+# gets the path checks on what it changed, and the content scan on its whole tree.
+check_history_paths() {  # the `hist` spawn: git log -z --raw --numstat, one \x01<sha> header per commit
+  local -a toks=() cur=(); local rc t sha= hdr=0
+  cc_collect hist toks nul; rc=$?
+  if (( rc != 0 )); then cc_block "(git log --raw)" "cannot list the files of the pushed commits (status $rc)"; return; fi
+  CC_NO_EXEC=1
+  for t in "${toks[@]}" $'\x01'; do
+    if [[ $t == $'\x01'* ]]; then
+      if [ -n "$sha" ] && [ -z "${seen[$sha]-}" ] && (( ${#cur[@]} )); then
+        CC_LOC_SFX=" (commit ${sha:0:10})"
+        cc_parse_listing cur
+        cc_check_paths "git show --format= --name-only --no-renames --diff-filter=d ${sha:0:10}"
+      fi
+      sha=${t#$'\x01'}; cur=(); hdr=1
+      continue
+    fi
+    (( hdr )) && t=${t#$'\n'}; hdr=0
+    cur+=("$t")
+  done
+  CC_NO_EXEC=0; CC_LOC_SFX=
+}
+check_history_content() {  # git grep over the older commits, 200 per process (command-line length)
+  local -a mids=(); local c i
+  for c in "${newc[@]}"; do [ -n "${seen[$c]-}" ] || mids+=("$c"); done
+  for (( i = 0; i < ${#mids[@]}; i += 200 )); do
+    cc_scan_spawn "${mids[@]:i:200}"
+    cc_scan_collect
+  done
+}
+
+# ---- one round, in parallel: settings, tree listings, commit identities, content scan ----
+cc_trace "lib loaded; ${#tips[@]} tip(s) to check"
+cc_spawn_config
+for i in "${!tips[@]}"; do
+  if (( ${#tips[i]} == 64 )); then empty=$EMPTY_SHA256; else empty=$EMPTY_SHA1; fi
+  cc_spawn "tree$i" "${CC_DIFF[@]}" "$empty" "${tips[i]}"
+done
+if (( ${#tips[@]} )); then
+  notrefs=()
+  [ -n "$remote" ] && [ "$remote" != "$url" ] && [[ $remote != */* && $remote != *:* ]] &&
+    notrefs+=("--remotes=$remote")
+  range=("${tips[@]}" --not "${notrefs[@]}" "${rshas[@]}")
+  cc_spawn log git -c log.showSignature=false -c i18n.logOutputEncoding=UTF-8 log -z --no-show-signature \
+    --ignore-missing --format='%H%x09%ae%x09%ce%x09%an%x1f%cn%x09%B' "${range[@]}"
+  cc_spawn hist git -c core.quotePath=false -c diff.relative=false -c diff.renames=false -c log.showRoot=true \
+    -c log.showSignature=false log -z --no-show-signature --no-color --no-ext-diff --no-textconv --no-renames \
+    --no-abbrev --raw --numstat --diff-filter=d --ignore-missing --format=%x01%H "${range[@]}"
+  if (( ${#tagshas[@]} )); then
+    tagin=; for s in "${tagshas[@]}"; do tagin+=$s$'\n'; done
+    cc_spawn_in tags "${tagin%$'\n'}" git cat-file --batch
+  fi
+  CC_SCAN_SRC=tree
+  cc_speculate "${tips[@]}"
+fi
+cc_collect_config
+(( ${#tips[@]} )) && cc_settle "${tips[@]}"
+cc_trace "settings: $CC_MODE mode, ${#CC_TERMS[@]} blocklist terms"
+
+slug=
+if [ "$CC_MODE" = private ]; then
+  github_slug "$url"; grc=$?
+  if (( grc == 0 )); then
+    slug=$CC_R
+    cc_spawn vis "${COMMCOACH_CURL:-curl}" -q -sS -L --max-redirs 3 --max-time 15 -o /dev/null \
+      -w '%{http_code}' -H 'Accept: application/vnd.github+json' -H 'User-Agent: commcoach-pre-push' \
+      "https://api.github.com/repos/$slug"
+  elif (( grc == 2 )); then
+    if [ "${COMMCOACH_SKIP_VISIBILITY:-0}" = 1 ]; then
+      cc_warn "cannot read owner/repo from the $CC_R remote URL; COMMCOACH_SKIP_VISIBILITY=1, so the push is allowed"
+    else
+      cc_block "(push target)" "cannot read owner/repo from the $CC_R remote URL - push refused (retry with COMMCOACH_SKIP_VISIBILITY=1 after checking the repo is private)"
+    fi
+  fi
+fi
+
+# ---- collect -----------------------------------------------------------------------------
+for i in "${!tips[@]}"; do
+  listing=()
+  cc_collect "tree$i" listing nul; rc=$?
+  if (( rc != 0 )); then cc_block "(commit ${tips[i]:0:10})" "cannot list the pushed tree (git diff status $rc)"; continue; fi
+  cc_parse_listing listing
+  cc_check_paths "git ls-tree -r --name-only ${tips[i]:0:10}"
+done
+cc_trace "path checks"
+cc_spawned log && check_log                      # identities (public) + messages (both modes)
+cc_spawned tags && check_taggers
+(( ${#tips[@]} )) && cc_scan_collect
+cc_trace "content scan"
+cc_spawned hist && check_history_paths
+check_history_content
+cc_trace "older commits: ${#newc[@]} new commit(s)"
+if cc_spawned vis; then
+  out=()
+  cc_collect vis out; rc=$?
+  code=
+  (( ${#out[@]} )) && code=${out[${#out[@]}-1]}
+  [[ $code =~ ^[0-9]{3}$ ]] || code=
+  visibility_verdict "$slug" "$code" "$rc"
+  cc_trace "visibility check"
+fi
+
+if ! cc_finish; then
+  printf '%s\n' "Nothing was pushed. Fix what is named above (matched text and emails are never printed) and push again." >&2
+  exit 1
+fi
+exit 0

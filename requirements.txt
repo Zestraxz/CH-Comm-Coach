@@ -1,0 +1,8 @@
+# eval/run_eval.py - Python >= 3.10. Tested with PyYAML 6.0.3 on Python 3.10, 3.11 and 3.14.
+pyyaml>=6.0,<7
+
+# Optional - only for the metered backend (run --backend api --metered). The default cli backend
+# needs no SDK. Tested: anthropic 0.96.0 (eval/test_run_eval.py, against a local fake API).
+# 1.x's breaking changes (httpx2, removed sampling params and Text Completions) do not touch the
+# calls this runner makes; re-run the tests after an upgrade.
+# anthropic>=0.96,<2

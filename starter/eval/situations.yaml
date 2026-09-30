@@ -1,0 +1,76 @@
+# Starter eval set: 10 synthetic situations that show the schema. Replace them with your own,
+# anonymised, and build to 20 (see eval/eval-set.md for the coverage minimums).
+#
+#   id:        unique positive integer
+#   prefix:    "L:" live · "P:" prep · "D:" draft · "X:" debrief · "R:" practice
+#              "" (empty) = a mode-detection test: the coach must pick the mode itself
+#   expect:    required when prefix is "": live | prep | draft | debrief | practice
+#   situation: the exact message you would send the coach
+#   tags:      optional: up, across, down, out, personal, zh, no-reply, push-back, safety,
+#              channel-switch, audience
+#   notes:     optional: what you actually said, what happened (helps you score)
+#
+# Quote every prefix and any text that contains ": ". Never copy the kernel's calibration
+# examples (section 11) into this file: `run_eval.py check` fails on them.
+
+- id: 1
+  prefix: "L:"
+  situation: "Video call with my manager right now. She just asked if I can take over a second project from next week. My current one already fills my week. What do I say?"
+  tags: [up]
+  notes: ""
+
+- id: 2
+  prefix: "L:"
+  situation: "On the phone with a software vendor's sales rep. He says the renewal discount disappears at midnight if we don't sign today. Honestly I just want to sign and be done with it."
+  tags: [out, push-back]
+  notes: ""
+
+- id: 3
+  prefix: "L:"
+  situation: "Text from my neighbour just now: 'Your car is blocking my gate AGAIN. Move it or I'm calling the building manager.' I'm stuck in a meeting for twenty minutes. What do I send back?"
+  tags: [personal]
+  notes: ""
+
+- id: 4
+  prefix: "P:"
+  situation: "Next week I need to borrow two analysts from the data team for a month. Their lead has already said no twice. How do I make the third ask land?"
+  tags: [across]
+  notes: ""
+
+- id: 5
+  prefix: "D:"
+  situation: "Rewrite this email to a junior teammate whose report had errors: 'Your report was full of mistakes again. Please be more careful, this is embarrassing for the whole team.'"
+  tags: [down]
+  notes: ""
+
+- id: 6
+  prefix: "D:"
+  situation: "帮我用中文回复合作方：他们说样品要推迟两周才能寄出，但我们下周就要给客户演示。语气要客气，但立场要坚定。"
+  tags: [out, zh]
+  notes: ""
+
+- id: 7
+  prefix: "X:"
+  situation: "Yesterday a peer and I argued about priorities in the team chat. It went back and forth for eight messages, each sharper than the last, until I stopped replying. How did I handle it, and what now?"
+  tags: [across, channel-switch, audience]
+  notes: ""
+
+- id: 8
+  prefix: "R:"
+  situation: "Be my department head. I'm going to ask for two remote days a week, and you're sceptical because the last person who had them stopped answering messages. I'll start."
+  tags: [up]
+  notes: ""
+
+- id: 9
+  prefix: ""
+  expect: live
+  situation: "He just told the whole meeting that my figures are wrong. They aren't. What do I say back right now?"
+  tags: [across, audience]
+  notes: ""
+
+- id: 10
+  prefix: ""
+  expect: prep
+  situation: "On Thursday I have to tell my landlord I'm moving out two months before the lease ends. How should I approach it?"
+  tags: [personal]
+  notes: ""

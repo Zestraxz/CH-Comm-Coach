@@ -1,0 +1,59 @@
+# Line endings: LF in the repository AND in every checkout, whatever core.autocrlf says.
+# A CRLF checkout of the hooks breaks them under WSL/Linux ("bash\r: No such file"), and
+# Git for Windows ships core.autocrlf=true in its system config.
+*                    text=auto eol=lf
+*.sh                 text eol=lf
+**/scripts/hooks/*   text eol=lf
+*.py                 text eol=lf
+*.md                 text eol=lf
+*.yaml               text eol=lf
+*.yml                text eol=lf
+*.txt                text eol=lf
+*.json               text eol=lf
+*.toml               text eol=lf
+*.cfg                text eol=lf
+.gitattributes       text eol=lf
+.gitignore           text eol=lf
+.gitkeep             text eol=lf
+LICENSE              text eol=lf
+# Windows-only scripts keep CRLF.
+*.cmd                text eol=crlf
+*.bat                text eol=crlf
+
+# Binary: never converted, never diffed as text. (The public pre-commit and pre-push refuse
+# binary files; the private ones refuse them under knowledge/ and eval/.)
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.webp  binary
+*.bmp   binary
+*.ico   binary
+*.pdf   binary
+*.zip   binary
+*.gz    binary
+*.tgz   binary
+*.7z    binary
+*.rar   binary
+*.doc   binary
+*.docx  binary
+*.xls   binary
+*.xlsx  binary
+*.ppt   binary
+*.pptx  binary
+*.odt   binary
+*.mp3   binary
+*.mp4   binary
+*.m4a   binary
+*.wav   binary
+*.mov   binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.otf   binary
+*.exe   binary
+*.dll   binary
+*.so    binary
+*.pyc   binary
+*.sqlite binary
+*.db    binary

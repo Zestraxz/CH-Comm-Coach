@@ -1,0 +1,38 @@
+# This is the PUBLIC framework repo. Nothing private ever enters it.
+# Patterns starting with "/" are anchored to this repo's root, so starter/knowledge/ (the blank
+# templates) stays tracked while a filled /knowledge/ can never be committed here.
+
+# Local-only material: blocklists, code key, raw messages, design notes
+/private/
+.resource/
+*.local.md
+
+# Filled knowledge belongs in your PRIVATE workspace repo, never in a public clone
+/knowledge/
+
+# Eval output holds model replies and your own notes (also for the starter data)
+**/eval/runs/
+
+# Secrets and environments
+.env
+.env.*
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Archives (they hide their contents from every text scan)
+*.zip
+
+# Editors and OS
+.DS_Store
+Thumbs.db
+desktop.ini
+~$*
+*.swp
+*.swo
+.idea/
+.vscode/
+.claude/settings.local.json
