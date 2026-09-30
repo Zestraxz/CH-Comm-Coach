@@ -68,6 +68,7 @@ eval/test_run_eval.py          unit tests for the runner
 scripts/install-hooks.sh       installs the hooks in public or private mode
 scripts/hooks/                 pre-commit, pre-push, lib.sh
 scripts/test-hooks.sh          regression suite for the hooks
+docs/                          optional: further public docs (allowed by the hook; none yet)
 ```
 
 Your private workspace, once set up:
@@ -433,16 +434,18 @@ repo, `framework/scripts/hooks` in a workspace), `commcoach.mode`, `commcoach.bl
 repo-local `user.email` (in public mode it must match `commcoach.publicEmail`). Inside this repo it also marks the hooks
 executable in the index. It warns when a blocklist file is missing, and re-running it is safe. Check the result with
 `git config core.hooksPath`. The hooks need bash 4.4 or newer and git 2.25 or newer; the private pre-push also needs
-`curl`. Every check fails closed: a check that cannot run blocks.
+`curl`. On Windows the repo and the hook scripts must be on the same drive: `core.hooksPath` is stored relative to the
+repo, and the installer refuses a cross-drive path. Every check fails closed: a check that cannot run blocks.
 
 | Setting | Meaning |
 |---|---|
 | `git config commcoach.mode` | `public` or `private`. Unset means `public`, the strictest. |
 | `git config commcoach.blocklistDir` | Folder holding the blocklists: absolute, or relative to the repo's top-level folder. Unset: `<top-level>/private` if it exists, else `<top-level>/../private`. |
 | `git config commcoach.publicEmail` | Pattern that author, committer and tagger email must match in public mode. Default `*@users.noreply.github.com`. |
-| `ALLOW_NO_BLOCKLIST=1` | One-shot: lets a commit through when the blocklist folder or `blocklist.txt` is missing. Public mode still needs `blocklist-public.txt` with at least one term. Do not set it in a shell profile. |
+| `ALLOW_NO_BLOCKLIST=1` | One-shot: lets a commit through when the blocklist folder or `blocklist.txt` is missing or unreadable (an encoding error still blocks). Public mode still needs `blocklist-public.txt` with at least one term. Do not set it in a shell profile. |
 | `COMMCOACH_SKIP_VISIBILITY=1` | One-shot: lets a push through when the private pre-push hook cannot get a definite answer from GitHub. |
 | `MAX_WORDS=<integer>` | Kernel word limit for the pre-commit check. Default 3200. A non-integer value blocks the commit. |
+| `COMMCOACH_CURL`, `COMMCOACH_TRACE`, `COMMCOACH_MAX_SHOW` | Test and debug only: a curl replacement for the visibility check (a stub that answers 404 has the same effect as the skip flag, so never set it outside `test-hooks.sh`), timing trace, and how many problems to list. |
 
 **Pre-commit** scans the whole staged index with `git grep`, not only the diff, so a renamed, moved or type-changed file
 cannot slip through. It reports the file, the line and the check, and never prints the matched text.
@@ -500,8 +503,8 @@ Never use `--no-verify`. The hooks are a backstop, not the policy: the policy is
    score outside 1 to 5, a row that errored). It appends one row per run file to `eval/runs/LOG.md`.
 4. **Commit** the kernel change in `framework/` (public repo) and the run file in your workspace (private repo).
 5. **Tag** in the public repo after a passing run, with the `git tag -a ...` command that `score` printed: it names the
-   commit that holds the evaluated kernel, and its message carries only the averages, the number of situations and the
-   run file's name (the run file itself stays private). If `score` told you to commit `kernel/` first, commit, then run
+   commit that holds the evaluated kernel, and its message carries only the overall average, the truth-fail count, the number of
+   situations and the run file's name (the run file itself stays private). If `score` told you to commit `kernel/` first, commit, then run
    the command it printed. Push the commits and the tag: `git push origin main v2.1`.
 6. **Paste the kernel into the Project's custom instructions** by hand, save, close, reopen the field and check that the
    last section is present (the field's size limit is unconfirmed).
