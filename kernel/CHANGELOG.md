@@ -16,7 +16,11 @@ Entry format: what changed · why · eval delta (overall before → after, truth
   - 2.1 baseline (5 situations): 2/5 over 80 words (max 98); Chinese reply 162 characters; truth 2/5.
   - 2.2 (8 situations ×2, 3 of them held out): 0/16 over 80 (mean 61, max 74); Chinese replies 67–107 characters; format 16/16; truth 10/16, judged stricter. The "who approved this?" case went from a claimed approval to no approval claim.
   - Truth failures that remain: a push line that concedes the decision, and a single known cause stretched to explain the whole delay.
-  - Not measured: the real eval set and the claude.ai Project itself, beyond one smoke test. Don't tag until the eval passes.
+  - Not measured: the real eval set. Don't tag until the eval passes.
+- Real Project check after deploying 2.2 (Fable 5.1 medium, n = 3): all 3 replies ≤80 words (about 50–70) in 13.6–14.4 s, against 93 words on 2.1 at the same setting. Format 3/3. Truth 1/3:
+  - A push line refused for the user ("the answer is no … tomorrow").
+  - An unknown approval was still asserted with placeholders, and only hedged in Why.
+  - The truth rules hold less well at medium effort than in the proxy. Next: a calibration example that shows an unknown event being asked about, not claimed; prove it with the eval.
 
 ## 2.1 — 2026-09-30
 - Changed:
