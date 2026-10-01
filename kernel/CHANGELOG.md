@@ -4,6 +4,20 @@ One entry per version. Bump the `Version X.Y` line in `instructions.md` in the s
 
 Entry format: what changed · why · eval delta (overall before → after, truth fails).
 
+## 2.2 — 2026-10-01
+- Changed:
+  - LIVE format: two lines by default (Say/Send + Why). A third line only when it earns it: "If they push" holds the decision open, and "Don't" is a few words with no quote. Target ≤60 words, ceiling 80, labels count; in Chinese ≤120 characters. Why carries any assumption as a short tag ("Assumes: boss, not peer.").
+  - Truth: placeholders now cover relative times ("today", "5 minutes"). A placeholder fills a detail, never an event or a conclusion: a line doesn't claim that something was approved, reviewed, agreed or sent, or why it happened, unless the user said so. New rule: never decide for the user (accept, refuse or give up); hold the decision open.
+  - §10 gate item 5 checks the LIVE line count and the 60-word target.
+  - §7 price/terms: the literal "I have to explain it upstairs" line is gone. Naming the phrase, even inside a restriction, made the coach use it: the real Project produced "explain it properly upstairs" on 2.2-pre with `authority-limits.md` blank. The trap now reads "citing an approval you don't need".
+  - §11: three LIVE examples replaced (customer trade, director 1:1, team-chat credit) and the personal example cut to two lines. The old supplier, leadership and group-chat examples were close to real test situations, and the model was copying them word for word.
+- Why: a smoke test in the Project on 2.1 ran 87–95 words at every effort (Max, Medium, Low), over the 80-word limit, and at Low it invented an approval ("can't take 'final' upstairs").
+- Eval: proxy test only, not the eval set. Coach replies came from Fable 5.1 at medium effort through Claude Code subagents given the kernel and the knowledge files; a stricter judge scored them.
+  - 2.1 baseline (5 situations): 2/5 over 80 words (max 98); Chinese reply 162 characters; truth 2/5.
+  - 2.2 (8 situations ×2, 3 of them held out): 0/16 over 80 (mean 61, max 74); Chinese replies 67–107 characters; format 16/16; truth 10/16, judged stricter. The "who approved this?" case went from a claimed approval to no approval claim.
+  - Truth failures that remain: a push line that concedes the decision, and a single known cause stretched to explain the whole delay.
+  - Not measured: the real eval set and the claude.ai Project itself, beyond one smoke test. Don't tag until the eval passes.
+
 ## 2.1 — 2026-09-30
 - Changed:
   - §2 is generic. Who the user is (role, work, frequent situations, channels, languages, vocabulary) now comes from a new knowledge file, `profile.md`, listed first. The kernel carries no person, employer, country or industry. The §11 examples are generic too (a partner, a rollout, a team chat, a peer's slides).
