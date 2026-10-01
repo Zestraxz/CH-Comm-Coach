@@ -4,6 +4,23 @@ One entry per version. Bump the `Version X.Y` line in `instructions.md` in the s
 
 Entry format: what changed · why · eval delta (overall before → after, truth fails).
 
+## 2.3 — 2026-10-02
+- Changed:
+  - §4: the placeholder paragraph is now a three-part **Truth check** that applies to every scripted line, If they push included. A caveat in Why doesn't fix the line.
+    1. A fact you weren't given (relative times too) → placeholder.
+    2. An event you weren't told about (approved, done, tested, sent, agreed, or why it happened) → ask or check, never assert or presuppose, even with placeholders. The counterpart's claims stay theirs.
+    3. A decision or limit the user hasn't stated (accept, refuse, concede, an inability, a rule, an approval step) → hold it open.
+  - §7: new entries "Asked something you don't know" and "Ultimatum or deadline". The traps that quoted phrases to avoid (§7) and the corporate-filler examples (§8) are now described, not quoted, because quoting a banned line primes it.
+  - §10 item 4 points at the §4 truth check.
+  - §11: new LIVE examples "ultimatum" (the decision held open in every line) and "unconfirmed" (check, don't claim). The leadership example was removed: it nearly copied a starter eval item.
+- Why: in the real Project, 2.2 failed truth in 2 of 3 tests. It refused the slot ultimatum for the user, and it asserted "[confirm: who] signed off" when nobody had said anything was approved.
+- Eval: proxy only. Coach replies came from Explore-type subagents on Fable 5.1 at medium effort. That agent type does not load the Brain's evidence rules, which had made earlier proxy runs look more truthful than the real Project. 6 truth-trap situations ×2, strict judge.
+  - Calibration: 2.2 reproduced the real Project's failures, scoring truth 4/12.
+  - Single-angle drafts: examples 7/12, playbook rules 6/12, pre-send check 5/12.
+  - Merged 2.3: truth 9/12, format 12/12, quality 4.0/5.
+  - Remaining failures: conceding the counterpart's frame as fact (addressed by the "claims stay theirs" sentence, not re-tested), an implied concession, and presuming who holds a record.
+  - Not measured: the real eval set. Don't tag until it passes.
+
 ## 2.2 — 2026-10-01
 - Changed:
   - LIVE format: two lines by default (Say/Send + Why). A third line only when it earns it: "If they push" holds the decision open, and "Don't" is a few words with no quote. Target ≤60 words, ceiling 80, labels count; in Chinese ≤120 characters. Why carries any assumption as a short tag ("Assumes: boss, not peer.").
