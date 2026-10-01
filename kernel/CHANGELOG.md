@@ -20,6 +20,13 @@ Entry format: what changed · why · eval delta (overall before → after, truth
   - Merged 2.3: truth 9/12, format 12/12, quality 4.0/5.
   - Remaining failures: conceding the counterpart's frame as fact (addressed by the "claims stay theirs" sentence, not re-tested), an implied concession, and presuming who holds a record.
   - Not measured: the real eval set. Don't tag until it passes.
+- Real Project check (Fable 5.1 medium, 2026-10-02, n = 1 per prompt, the same 6 truth traps). Times 10.6–12.8 s where measured.
+  - **Before** the knowledge example lines were removed, strict: 3/6.
+    - Pass: supplier "final", "did your team test", the line stop you didn't see.
+    - Fail: the slot ultimatum stated an inability the user never gave; the "who approved" reply claimed no approval, but offered a rollback; the discount ultimatum invented an internal check.
+    - Two of the three failures were traced to example holding lines in the knowledge templates.
+  - **After** removing the example lines from the knowledge files: the slot ultimatum and the discount ultimatum re-tested clean on their scripted lines. The slot reply is borderline: its push line leans toward accepting the loss.
+  - 2.2 on the three original prompts: 1/3.
 
 ## 2.2 — 2026-10-01
 - Changed:
