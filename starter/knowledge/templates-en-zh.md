@@ -1,6 +1,6 @@
 # Bilingual templates (EN / ZH)
 
-Coach: match these templates' structure and register when drafting a bilingual or second-language message. Same decision in both versions; numbers, dates, item names, and commitments identical. Where a template has a fixed courtesy structure, keep it; change only what the situation needs. The user's own templates win over the phrasebank examples.
+Coach: match these templates' structure and register when drafting a bilingual or second-language message. Same decision in both versions; numbers, dates, item names, and commitments identical. Where a template has a fixed courtesy structure, keep it; change only what the situation needs.
 
 Another language pair works the same way: keep the file name (the coach looks for it) and relabel the sections.
 
@@ -41,9 +41,6 @@ Another language pair works the same way: keep the file name (the coach looks fo
 **ZH:**
 > …
 
-## Phrasebank — lines that land in ZH (examples — replace with yours)
-- Asking for a reason without confrontation: 想请教一下，这次调价主要是哪些因素导致的？
-- Softened no: 这个条件我们目前比较难接受，能否看看在交期或付款方式上有没有调整空间？
-- Confirming a verbal agreement: 为避免误解，我把今天电话中确认的内容整理如下，请帮忙核对确认。
-- Escalation that saves face: 我理解贵司的难处，但目前的进度已经影响到我们这边的整体安排，需要请您协助推动一下。
-- Holding line (beyond my authority): 这一点我需要先和内部确认，[confirm: 时间]前给您答复。
+## Phrasebank — lines that land in ZH, in my own words
+
+- [your own lines]

@@ -26,8 +26,6 @@ Describe limits in bands and roles, not figures.
 - Final say: [role]
 - How long approvals really take: [e.g., same day if I catch them early; a week if it goes to committee]
 
-## Holding lines — edit to my voice
-Use a line that names an approval only when one is really needed.
-- Neutral: "Before I answer that, I need to check one thing on my side. I'll come back to you by [confirm: time]."
-- Above my limit: "That's above what I can sign off today. Let me take it back and confirm by [confirm: time]."
-- Split: "I can agree to [in-limit item] now. [Out-of-limit item] needs [role] — I'll come back to you on that by [confirm: date]."
+## Holding lines — in my own words
+
+- [your own holding lines; until you write them, the coach uses only "I'll confirm by [confirm: time]"]

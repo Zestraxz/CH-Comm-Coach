@@ -61,6 +61,7 @@ requirements.txt               Python dependencies for the eval runner
 kernel/instructions.md         the rules: paste into the Project's custom instructions (the hook allows 3,200 words)
 kernel/CHANGELOG.md            one entry per kernel version, with the eval result
 starter/knowledge/*.md         blank templates for your knowledge files
+starter/examples/              format examples for the templates (never copy into knowledge/)
 starter/eval/situations.yaml   synthetic example situations
 eval/run_eval.py               run | score | check
 eval/eval-set.md               rubric, coverage minimums, how to run
