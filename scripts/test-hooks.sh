@@ -409,7 +409,8 @@ sec_patterns() {
   done
   pos=('+60 12-345 6789' '+60123456789' '012-345 6789' '012-3456789' '0123456789' '(03) 1234 5678'
        '03-2345 6789' '+60 3-1234 5678' '+86 138 0013 8000' '13800138000' '+65 6123 4567' '+44 20 7946 0958'
-       '(555) 123-4567' '+1 (555) 123-4567' '012.345.6789' '0123 456 789' '电话0123456789' 'Tel:0123456789')
+       '(555) 123-4567' '+1 (555) 123-4567' '012.345.6789' '0123 456 789' '电话0123456789' 'Tel:0123456789'
+       'Tel.012-345 6789' 'Mobile.13800138000')
   reset; s=; for i in "${pos[@]}"; do s+="call $i"$'\n'; done; put $f "$s"; git add $f
   attempt git commit -q -m phone; parse_report
   for i in "${!pos[@]}"; do
@@ -419,7 +420,8 @@ sec_patterns() {
   neg=('PO 20260927001 dated 2026-09-27' 'batch 202609301234 shipped' 'Invoice 2026 0930 1234'
        'qty 100 200 3000 units' 'part 12-3456-7890' 'epoch 1727654400' 'SKU 123456789' 'CAPA-2026-0345'
        '20260927' 'at 14:30' 'tolerance 0.050 0.100' 'lot 0210-3344' 'dates 03/10/2026' 'order +5 000 000 pcs'
-       'sha256: c7a3d4b057562589bf4b9a9e' 'commit f13800138000a2' 'sha256: 0123456789abcdef')
+       'sha256: c7a3d4b057562589bf4b9a9e' 'commit f13800138000a2' 'sha256: 0123456789abcdef'
+       'cli_reported_cost_usd: 0.04731475' 'ratio 0.0123456789' 'factor 1.13800138000')
   reset; s=; for i in "${neg[@]}"; do s+="$i"$'\n'; done; put $f "$s"; git add $f
   attempt git commit -q -m nophone; hook_ran; parse_report
   [ "$GOT" = NOHOOK ] && row FAIL "nophone" PASS NOHOOK "$MS" "the hook did not run"

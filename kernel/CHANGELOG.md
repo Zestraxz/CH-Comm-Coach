@@ -27,6 +27,10 @@ Entry format: what changed · why · eval delta (overall before → after, truth
     - Two of the three failures were traced to example holding lines in the knowledge templates.
   - **After** removing the example lines from the knowledge files: the slot ultimatum and the discount ultimatum re-tested clean on their scripted lines. The slot reply is borderline: its push line leans toward accepting the loss.
   - 2.2 on the three original prompts: 1/3.
+- **First eval, 2026-10-11:** 20 situations, Fable 5.1 medium via `claude -p`. Scores: the owner accepted the combined suggestion of two AI judges.
+  - Outcome 4.15 · register 4.20 · sayable 3.90 · length 3.75 · overall **4.00** · truth fails **7** → gate BELOW, not tagged.
+  - LIVE truth held (1 fail in 6). PREP, DRAFT and DEBRIEF added made-up context (6 fails in 14).
+  - 4 of 5 PREP replies ran over 250 words.
 
 ## 2.2 — 2026-10-01
 - Changed:

@@ -383,9 +383,11 @@ CC_RE_EMAIL='[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'
 # The bare-digit phone forms (leading 0, or a CN mobile 1[3-9]...) must not touch an ASCII letter
 # or digit on either side: inside a hex hash or commit id ("...b057562589b...") they are not phone
 # numbers, and eval run files carry dozens of sha256 values (about 1 in 20 matched before).
+# Nor may they follow a digit and a dot: the fraction in "0.04731475" (a cost in a run file) is a
+# decimal, not a number starting with 0. A dot after a word still counts ("Tel.012-345 6789").
 CC_RE_PHONE='\+[0-9]{1,3}[ .-]?(\(?[0-9]{1,4}\)?[ .-]?)?[0-9]{3,4}[ .-]?[0-9]{4}([^0-9]|$)'\
-'|(^|[^0-9A-Za-z])\(?0[0-9]{1,3}\)?[ .-]?[0-9]{3,4}[ .-]?[0-9]{3,4}([^0-9A-Za-z]|$)'\
-'|(^|[^0-9A-Za-z])1[3-9][0-9][ -]?[0-9]{4}[ -]?[0-9]{4}([^0-9A-Za-z]|$)'\
+'|(^|[^0-9A-Za-z.]|(^|[^0-9])[.])\(?0[0-9]{1,3}\)?[ .-]?[0-9]{3,4}[ .-]?[0-9]{3,4}([^0-9A-Za-z]|$)'\
+'|(^|[^0-9A-Za-z.]|(^|[^0-9])[.])1[3-9][0-9][ -]?[0-9]{4}[ -]?[0-9]{4}([^0-9A-Za-z]|$)'\
 '|(^|[^0-9])(\([0-9]{3}\) ?|[0-9]{3}[.-])[0-9]{3}[.-][0-9]{4}([^0-9]|$)'
 
 cc_pattern_label() {  # CC_R = which pattern(s) a reported line matches (same ERE in bash)
